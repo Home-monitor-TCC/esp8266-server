@@ -44,6 +44,10 @@ void Componente::setNome(String nome){
   _nome = nome;
 }
 
+String Componente::getNome(){
+  return nome;
+}
+
 void Componente::setDescricao(String descricao){
   _descricao = descricao;
 }
