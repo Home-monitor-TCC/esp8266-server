@@ -18,6 +18,9 @@ class Componente{
     void setTipo(int tipo);
     int getTipo();
 
+    //1 - LED
+    //2 - SENSORES
+
   protected:
     int _pino;
     int _tipo;
