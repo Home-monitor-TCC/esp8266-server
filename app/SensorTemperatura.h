@@ -4,16 +4,16 @@
 
 #define SensorTemperatura_H
 
-class SensorTemperatura: public Componente{
+class SensorTemperatura: public Componente {
   public:
-    SensorTemperatura(String nome, String descricao, int pino, int tipo):Componente(nome, descricao, pino, tipo){};
+    SensorTemperatura(String nome, String descricao, int pino, int tipo): Componente(nome, descricao, pino, tipo) {};
 
-    float getTemperatura(); 
-    
+    float getTemperatura();
+
   protected:
     float _temperatura;
 };
 
-float SensorTemperatura::getTemperatura(){
+float SensorTemperatura::getTemperatura() {
   return _temperatura;
 }
