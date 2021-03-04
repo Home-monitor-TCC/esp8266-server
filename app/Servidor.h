@@ -9,6 +9,7 @@ using std::list;
 ESP8266WebServer servidorEsp(80);
 
 std::list<Componente> componentes = {};
+int listaGPIO[] = {16, 5, 4, 0, 2, 14, 12, 13, 15, 3, 1};
 
 class Servidor {
   public:
@@ -72,17 +73,35 @@ void Servidor::handleAdicionarComponente() {
   else {
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
+  
+  if (nome.length() > 64) { //Limite tamanho do nome
+    servidorEsp.send(400, "text/plain", "400: Bad Request");
+  }
+  if (descricao.length() > 256) { //Limite tamanho da descricao
+    servidorEsp.send(400, "text/plain", "400: Bad Request");
+  }
 
-  DynamicJsonDocument docRes(1024);
-  String resposta = "";
+  for (auto x : componentes) {
+    if(pino == x.getPino()){ // Verifica se o pino já tá em uso.
+      servidorEsp.send(400, "text/plain", "400: Bad Request"); 
+    }
+  }
+  for (int x: listaGPIO) {//Verifica a validade do pino escolhido
+    if(pino == x){
+  
+      DynamicJsonDocument docRes(1024);
+      String resposta = "";
 
-  docRes["nome"] = nome;
-  docRes["descricao"] = descricao;
-  docRes["pino"] = pino;
+      docRes["nome"] = nome;
+      docRes["descricao"] = descricao;
+      docRes["pino"] = pino;
 
-  serializeJson(docRes, resposta);
+      serializeJson(docRes, resposta);
 
-  servidorEsp.send(200, "text/plain", resposta);
+      servidorEsp.send(200, "text/plain", resposta);
+    }
+  }
+    servidorEsp.send(400, "text/plain", "400: Bad Request"); //Se nenhum pino tiver sido escolhido, informar erro
 }
 
 void Servidor::handleRemoverComponente() {
@@ -125,16 +144,42 @@ void Servidor::handleEditarComponente() {
   String nomeNovo = doc["nomeNovo"];
   String descricaoNovo = doc["descricaoNovo"];
   int pinoNovo = doc["pinoNovo"];
-
-  for (auto i : componentes) {
-    if (i.getNome() == nome && i.getDescricao() == descricao && i.getPino() == pino) {
-      i.setNome(nomeNovo);
-      i.setDescricao(descricaoNovo);
-      i.setPino(pinoNovo);
+  bool validapino = false;
+  bool validaedit = false;
+  if (nomeNovo.length() > 64) { //Limite tamanho do nome
+    servidorEsp.send(400, "text/plain", "400: Bad Request");
+  }
+  if (descricaoNovo.length() > 256) { //Limite tamanho da descricao
+    servidorEsp.send(400, "text/plain", "400: Bad Request");
+  }
+  for (auto x : componentes) {//Esse FOR provavelmente é desnecessário e a verificação talvez possa ser feita no FOR de baixo...
+    if(pinoNovo == x.getPino() && pinoNovo != pino){// Verifica se o pino já tá em uso ou simplesmente sendo mantido
+      servidorEsp.send(400, "text/plain", "400: Bad Request"); 
     }
   }
-
-  servidorEsp.send(200, "text/plain");
+  for (int x: listaGPIO) {//Verifica a validade do pino escolhido
+    if(pinoNovo = x){
+      validapino = true;
+    }
+  }
+  if(validapino){// Só adiciona o 
+  for (auto i : componentes) {
+      if (i.getNome() == nome && i.getDescricao() == descricao && i.getPino() == pino) { //Isso aqui já verifica a existência do componente :D
+        i.setNome(nomeNovo);
+        i.setDescricao(descricaoNovo);
+        i.setPino(pinoNovo);
+        validaedit = true;
+      }
+    }
+  }else{
+    servidorEsp.send(400, "text/plain", "400: Bad Request");//Pino escolhido não é válido -> bad request
+  }
+  
+  if(validaedit){
+    servidorEsp.send(200, "text/plain");
+  }else{
+    servidorEsp.send(400, "text/plain", "400: Bad Request");//Talvez um 500 Internal Server Error, up for discussion
+  }
 }
 
 void Servidor::handleAcenderLed() {
