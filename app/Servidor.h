@@ -16,7 +16,7 @@ class Servidor {
     Servidor();
     void handler();
 
-  private:  
+  private:
     void handleRoot();
     void handleNotFound();
     void handleAdicionarComponente();
@@ -74,7 +74,7 @@ void Servidor::handleAdicionarComponente() {
   else {
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
-  
+
   if (nome.length() > 64) { //Limite tamanho do nome
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
@@ -84,12 +84,12 @@ void Servidor::handleAdicionarComponente() {
 
   for (auto x : componentes) {
     if(pino == x.getPino()){ // Verifica se o pino já tá em uso.
-      servidorEsp.send(400, "text/plain", "400: Bad Request"); 
+      servidorEsp.send(400, "text/plain", "400: Bad Request");
     }
   }
   for (int x: listaGPIO) {//Verifica a validade do pino escolhido
     if(pino == x){
-  
+
       DynamicJsonDocument docRes(1024);
       String resposta = "";
 
@@ -106,31 +106,37 @@ void Servidor::handleAdicionarComponente() {
 }
 
 void Servidor::handleRemoverComponente() {
+  bool removido = false;
   String data = servidorEsp.arg("plain");
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
-  DynamicJsonDocument docRes(1024);
 
   String nome = doc["nome"];
   String descricao = doc["descricao"];
   int pino = doc["pino"];
 
   std::list<Componente>::iterator it;
-  for (it = componentes.begin(); it != componentes.end(); it++) {
-    if (it->getNome() == nome && it->getDescricao() == descricao && it->getPino() == pino) {
+  for (it = componentes.begin(); it != componentes.end(); it++) { //percorre a lista de componentes
+    if (it->getNome() == nome && it->getDescricao() == descricao && it->getPino() == pino) { //encontra o pino especificado
       it = componentes.erase(it);
+      removido = true;
     }
   }
-
+  DynamicJsonDocument docRes(1024);
   String resposta = "";
 
-  docRes["nome"] = nome;
-  docRes["descricao"] = descricao;
-  docRes["pino"] = pino;
-
-  serializeJson(docRes, resposta);
-
-  servidorEsp.send(200, "text/plain", resposta);
+  if(removido){
+    docRes["nome"] = nome;
+    docRes["descricao"] = descricao;
+    docRes["pino"] = pino;          //Monta o corpo do docRes caso a remoção tenha tido sucesso
+    serializeJson(docRes, resposta);
+    servidorEsp.send(200, "text/plain", resposta);
+  }
+  else {
+    docRes["erro"] = "Componente não foi encontrado na tentativa de remover."; //Monta o docRes apenas com a mensagem de erro
+    serializeJson(docRes, resposta);
+    servidorEsp.send(400, "text/plain", resposta);
+  }
 }
 
 void Servidor::handleEditarComponente() {
@@ -156,7 +162,7 @@ void Servidor::handleEditarComponente() {
   }
   for (auto x : componentes) {
     if(pinoNovo == x.getPino() && pinoNovo != pino){ // Verifica se o pino já tá em uso ou simplesmente sendo mantido
-      servidorEsp.send(400, "text/plain", "400: Bad Request"); 
+      servidorEsp.send(400, "text/plain", "400: Bad Request");
     }
   }
   for (int x: listaGPIO) {//Verifica a validade do pino escolhido
@@ -164,9 +170,9 @@ void Servidor::handleEditarComponente() {
       validapino = true;
     }
   }
-  if(validapino){// Só adiciona o 
+  if(validapino){// Só adiciona o
   for (auto i : componentes) {
-      if (i.getNome() == nome && i.getDescricao() == descricao && i.getPino() == pino) { 
+      if (i.getNome() == nome && i.getDescricao() == descricao && i.getPino() == pino) {
         i.setNome(nomeNovo);
         i.setDescricao(descricaoNovo);
         i.setPino(pinoNovo);
@@ -176,7 +182,7 @@ void Servidor::handleEditarComponente() {
   }else{
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
-  
+
   if(validaedit){
     servidorEsp.send(200, "text/plain");
   }else{
@@ -194,7 +200,7 @@ void Servidor::handleAcenderLed() {
   String resposta = "";
   int pino = doc["pino"];
   int tipo = doc["tipo"];
-    
+
   for (int x : listaGPIO) { //Verifica a validade do pino escolhido
     if(pino == x){
       flag = true;
@@ -203,13 +209,13 @@ void Servidor::handleAcenderLed() {
   if(flag == false){
     docRes["erro"] = "Pino inválido.";
     serializeJson(docRes, resposta);
-    servidorEsp.send(400, "text/plain", resposta); 
+    servidorEsp.send(400, "text/plain", resposta);
   }
-  if(tipo == 1){ 
-    for(auto i : componentes){   
+  if(tipo == 1){
+    for(auto i : componentes){
         if( pino == i.getPino()){
           if(digitalRead(pino) == HIGH){
-           docRes["erro"] = "Não é possível ligar um LED já aceso"; //Monta o docRes apenas com a mensagem de erro 
+           docRes["erro"] = "Não é possível ligar um LED já aceso"; //Monta o docRes apenas com a mensagem de erro
            serializeJson(docRes, resposta);
            servidorEsp.send(400, "text/plain", resposta);
           }
@@ -219,9 +225,9 @@ void Servidor::handleAcenderLed() {
   else{
     docRes["erro"] = "Não é possível acender um sensor";
     serializeJson(docRes, resposta);
-    servidorEsp.send(400, "text/plain", resposta); 
+    servidorEsp.send(400, "text/plain", resposta);
   }
-  
+
   for (auto i : componentes) {
     if (i.getTipo() == 1) {
         Led *pLed;
@@ -232,7 +238,7 @@ void Servidor::handleAcenderLed() {
 }
 
 void Servidor::handleApagarLed() {
- 
+
   String data = servidorEsp.arg("plain");
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
@@ -241,7 +247,7 @@ void Servidor::handleApagarLed() {
   String resposta = "";
   int pino = doc["pino"];
   int tipo = doc["tipo"];
-    
+
   for (int x : listaGPIO) { //Verifica a validade do pino escolhido
     if(pino == x){
       flag = true;
@@ -250,13 +256,13 @@ void Servidor::handleApagarLed() {
   if(flag == false){
     docRes["erro"] = "Pino inválido.";
     serializeJson(docRes, resposta);
-    servidorEsp.send(400, "text/plain", resposta); 
+    servidorEsp.send(400, "text/plain", resposta);
   }
-  if(tipo == 1){ 
-    for(auto i : componentes){   
+  if(tipo == 1){
+    for(auto i : componentes){
         if( pino == i.getPino()){
           if(digitalRead(pino) == LOW){
-           docRes["erro"] = "Não é possível apagar um LED já apagado"; //Monta o docRes apenas com a mensagem de erro 
+           docRes["erro"] = "Não é possível apagar um LED já apagado"; //Monta o docRes apenas com a mensagem de erro
            serializeJson(docRes, resposta);
            servidorEsp.send(400, "text/plain", resposta);
           }
@@ -266,9 +272,9 @@ void Servidor::handleApagarLed() {
   else{
     docRes["erro"] = "Não é possível apagar um sensor";
     serializeJson(docRes, resposta);
-    servidorEsp.send(400, "text/plain", resposta); 
+    servidorEsp.send(400, "text/plain", resposta);
   }
-  
+
   for (auto i : componentes) {
     if (i.getTipo() == 1) {
         Led *pLed;
