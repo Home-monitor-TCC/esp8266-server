@@ -15,10 +15,12 @@ class Led: public Componente {
     bool _estadoLED = false;
 };
 
-void Led::setEstado(bool estadoLED) {
+void Led::setEstado(bool estadoLED) {  
   _estadoLED = estadoLED;
+  digitalWrite(_pino, _estadoLED);
 }
 
 bool Led::getEstado() {
+  _estadoLED = digitalRead(_pino);
   return _estadoLED;
 }
