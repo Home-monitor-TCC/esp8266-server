@@ -54,6 +54,7 @@ void Servidor::handleAdicionarComponente() {
   String data = servidorEsp.arg("plain");
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
+  DynamicJsonDocument docRes(1024);
 
   String nome = doc["nome"];
   String descricao = doc["descricao"];
@@ -108,6 +109,7 @@ void Servidor::handleRemoverComponente() {
   String data = servidorEsp.arg("plain");
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
+  DynamicJsonDocument docRes(1024);
 
   String nome = doc["nome"];
   String descricao = doc["descricao"];
@@ -120,7 +122,6 @@ void Servidor::handleRemoverComponente() {
     }
   }
 
-  DynamicJsonDocument docRes(1024);
   String resposta = "";
 
   docRes["nome"] = nome;
@@ -136,6 +137,7 @@ void Servidor::handleEditarComponente() {
   String data = servidorEsp.arg("plain");
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
+  DynamicJsonDocument docRes(1024);
 
   String nome = doc["nome"];
   String descricao = doc["descricao"];
@@ -152,8 +154,8 @@ void Servidor::handleEditarComponente() {
   if (descricaoNovo.length() > 256) { //Limite tamanho da descricao
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
-  for (auto x : componentes) {//Esse FOR provavelmente é desnecessário e a verificação talvez possa ser feita no FOR de baixo...
-    if(pinoNovo == x.getPino() && pinoNovo != pino){// Verifica se o pino já tá em uso ou simplesmente sendo mantido
+  for (auto x : componentes) {
+    if(pinoNovo == x.getPino() && pinoNovo != pino){ // Verifica se o pino já tá em uso ou simplesmente sendo mantido
       servidorEsp.send(400, "text/plain", "400: Bad Request"); 
     }
   }
@@ -164,7 +166,7 @@ void Servidor::handleEditarComponente() {
   }
   if(validapino){// Só adiciona o 
   for (auto i : componentes) {
-      if (i.getNome() == nome && i.getDescricao() == descricao && i.getPino() == pino) { //Isso aqui já verifica a existência do componente :D
+      if (i.getNome() == nome && i.getDescricao() == descricao && i.getPino() == pino) { 
         i.setNome(nomeNovo);
         i.setDescricao(descricaoNovo);
         i.setPino(pinoNovo);
@@ -172,41 +174,106 @@ void Servidor::handleEditarComponente() {
       }
     }
   }else{
-    servidorEsp.send(400, "text/plain", "400: Bad Request");//Pino escolhido não é válido -> bad request
+    servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
   
   if(validaedit){
     servidorEsp.send(200, "text/plain");
   }else{
-    servidorEsp.send(400, "text/plain", "400: Bad Request");//Talvez um 500 Internal Server Error, up for discussion
+    servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
 }
-
 void Servidor::handleAcenderLed() {
+
   String data = servidorEsp.arg("plain");
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
+  DynamicJsonDocument docRes(1024);
 
+  bool flag = false;
+  String resposta = "";
   int pino = doc["pino"];
-
+  int tipo = doc["tipo"];
+    
+  for (int x : listaGPIO) { //Verifica a validade do pino escolhido
+    if(pino == x){
+      flag = true;
+      }
+  }
+  if(flag == false){
+    docRes["erro"] = "Pino inválido.";
+    serializeJson(docRes, resposta);
+    servidorEsp.send(400, "text/plain", resposta); 
+  }
+  if(tipo == 1){ 
+    for(auto i : componentes){   
+        if( pino == i.getPino()){
+          if(digitalRead(pino) == HIGH){
+           docRes["erro"] = "Não é possível ligar um LED já aceso"; //Monta o docRes apenas com a mensagem de erro 
+           serializeJson(docRes, resposta);
+           servidorEsp.send(400, "text/plain", resposta);
+          }
+       }
+    }
+  }
+  else{
+    docRes["erro"] = "Não é possível acender um sensor";
+    serializeJson(docRes, resposta);
+    servidorEsp.send(400, "text/plain", resposta); 
+  }
+  
   for (auto i : componentes) {
     if (i.getTipo() == 1) {
-      //      i.setEstado(true)
+        Led *pLed;
+//        pLed = i;
+//        pLed->setEstado(false);
     }
   }
 }
 
 void Servidor::handleApagarLed() {
+ 
   String data = servidorEsp.arg("plain");
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
-
+  DynamicJsonDocument docRes(1024);
+  bool flag = false;
+  String resposta = "";
   int pino = doc["pino"];
-
-  std::list<Componente>::iterator it;
+  int tipo = doc["tipo"];
+    
+  for (int x : listaGPIO) { //Verifica a validade do pino escolhido
+    if(pino == x){
+      flag = true;
+      }
+  }
+  if(flag == false){
+    docRes["erro"] = "Pino inválido.";
+    serializeJson(docRes, resposta);
+    servidorEsp.send(400, "text/plain", resposta); 
+  }
+  if(tipo == 1){ 
+    for(auto i : componentes){   
+        if( pino == i.getPino()){
+          if(digitalRead(pino) == LOW){
+           docRes["erro"] = "Não é possível apagar um LED já apagado"; //Monta o docRes apenas com a mensagem de erro 
+           serializeJson(docRes, resposta);
+           servidorEsp.send(400, "text/plain", resposta);
+          }
+       }
+    }
+  }
+  else{
+    docRes["erro"] = "Não é possível apagar um sensor";
+    serializeJson(docRes, resposta);
+    servidorEsp.send(400, "text/plain", resposta); 
+  }
+  
   for (auto i : componentes) {
     if (i.getTipo() == 1) {
-      //      i.setEstado(false)
+        Led *pLed;
+        //pLed = i;
+        //pLed->setEstado(false);
     }
   }
 }
@@ -219,7 +286,7 @@ void Servidor::handleSensores() {
   for (auto i : componentes) {
     if (i.getTipo() == 2) {
       docRes[aux]["pino"] = i.getNome();
-      docRes[aux]["dados"] = i.getNome();
+     // docRes[aux]["dados"] = (SensorTemperatura)i.getTemperatura();
       aux++;
     }
   }

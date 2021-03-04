@@ -20,9 +20,9 @@ class SensorTemperatura: public Componente {
     DallasTemperature sensor; 
 };
 
-SensorTemperatura::SensorTemperatura(String nome, String descricao, int pino, int tipo): Componente(nome, descricao, pino, tipo) {
+SensorTemperatura::SensorTemperatura(String nome, String descricao, int pino, int tipo):Componente(nome, descricao, pino, tipo) {
         OneWire owTemp(pino);
-
+        pinMode(pino, INPUT);
         pinoGPIO = owTemp;
         
         DallasTemperature dtTemp(&pinoGPIO);

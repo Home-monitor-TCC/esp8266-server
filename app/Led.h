@@ -6,14 +6,19 @@
 
 class Led: public Componente {
   public:
-    Led(String nome, String descricao, int pino, int tipo): Componente(nome, descricao, pino, tipo) {};
 
+    Led(String nome, String descricao, int pino, int tipo);
+    
     void setEstado(bool estadoLED);
     bool getEstado();
 
   protected:
     bool _estadoLED = false;
 };
+
+Led::Led(String nome, String descricao, int pino, int tipo):Componente(nome, descricao, pino, tipo) {
+  pinMode(pino, OUTPUT);
+}
 
 void Led::setEstado(bool estadoLED) {  
   _estadoLED = estadoLED;
