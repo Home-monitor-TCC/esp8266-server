@@ -8,8 +8,8 @@
 using std::list;
 ESP8266WebServer servidorEsp(80);
 
-std::list<Componente> componentes = {};
-int listaGPIO[] = {16, 5, 4, 0, 2, 14, 12, 13, 15, 3, 1};
+std::list<Componente> componentes = {}; //Cria a lista de componentes registrados
+int listaPinosValidos[] = {16, 5, 4, 0, 2, 14, 12, 13, 15, 3, 1}; //Lista de pinos válidos para uso
 
 class Servidor {
   public:
@@ -55,7 +55,7 @@ void Servidor::handleAdicionarComponente() {
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
   DynamicJsonDocument docRes(1024);
-
+  
   String nome = doc["nome"];
   String descricao = doc["descricao"];
   int tipo = doc["tipo"];
@@ -71,7 +71,7 @@ void Servidor::handleAdicionarComponente() {
     componentes.push_back(*comp);
   }
 
-  else {
+  else {//Se o tipo do componente não existir
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
 
@@ -87,7 +87,7 @@ void Servidor::handleAdicionarComponente() {
       servidorEsp.send(400, "text/plain", "400: Bad Request");
     }
   }
-  for (int x: listaGPIO) {//Verifica a validade do pino escolhido
+  for (int x: listaPinosValidos) {//Verifica a validade do pino escolhido
     if(pino == x){
 
       DynamicJsonDocument docRes(1024);
@@ -165,7 +165,7 @@ void Servidor::handleEditarComponente() {
       servidorEsp.send(400, "text/plain", "400: Bad Request");
     }
   }
-  for (int x: listaGPIO) {//Verifica a validade do pino escolhido
+  for (int x: listaPinosValidos) {//Verifica a validade do pino escolhido
     if(pinoNovo = x){
       validapino = true;
     }
@@ -201,7 +201,7 @@ void Servidor::handleAcenderLed() {
   int pino = doc["pino"];
   int tipo = doc["tipo"];
 
-  for (int x : listaGPIO) { //Verifica a validade do pino escolhido
+  for (int x : listaPinosValidos) { //Verifica a validade do pino escolhido
     if(pino == x){
       flag = true;
       }
@@ -248,7 +248,7 @@ void Servidor::handleApagarLed() {
   int pino = doc["pino"];
   int tipo = doc["tipo"];
 
-  for (int x : listaGPIO) { //Verifica a validade do pino escolhido
+  for (int x : listaPinosValidos) { //Verifica a validade do pino escolhido
     if(pino == x){
       flag = true;
       }
