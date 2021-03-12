@@ -293,6 +293,26 @@ void Servidor::handleAcenderLed() {
         Led *pLed;
 //        pLed = i;
 //        pLed->setEstado(false);
+      HTTPClient client;
+      String reqUrl = "num sei";
+      client.begin(reqUrl); //especifica o destino da request
+      client.addHeader("Content-Type","text/plain"); // especifica o tipo de conteudo do header
+
+      DynamicJsonDocument docResHttp(1024);
+      String msgHttp;
+
+      //(to-do)? adicionar conteudo em msgHttp
+      docResHttp["macAddress"] = _macAddress;
+      docResHttp["pino"] = pino;
+
+      serializeJson(docResHttp, msgHttp); //serializa o conteudo de docResHttp em uma string
+
+      int httpCode = client.POST(msgHttp); //envia a request e recebe o codigo de resposta
+      String respostaHttp = client.getString(); //recebe a resposta ao request
+      // Serial.println(httpCode); //imprime o codigo de resposta
+      // Serial.println(respostaHttp); //imprime a resposta ao request
+
+      client.end(); //encerra conexão
     }
   }
 }
@@ -340,6 +360,26 @@ void Servidor::handleApagarLed() {
         Led *pLed;
         //pLed = i;
         //pLed->setEstado(false);
+      HTTPClient client;
+      String reqUrl = "num sei";
+      client.begin(reqUrl); //especifica o destino da request
+      client.addHeader("Content-Type","text/plain"); // especifica o tipo de conteudo do header
+
+      DynamicJsonDocument docResHttp(1024);
+      String msgHttp;
+
+      //(to-do)? adicionar conteudo em msgHttp
+      docResHttp["macAddress"] = _macAddress;
+      docResHttp["pino"] = pino;
+
+      serializeJson(docResHttp, msgHttp); //serializa o conteudo de docResHttp em uma string
+
+      int httpCode = client.POST(msgHttp); //envia a request e recebe o codigo de resposta
+      String respostaHttp = client.getString(); //recebe a resposta ao request
+      // Serial.println(httpCode); //imprime o codigo de resposta
+      // Serial.println(respostaHttp); //imprime a resposta ao request
+
+      client.end(); //encerra conexão
     }
   }
 }
