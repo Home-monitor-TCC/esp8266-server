@@ -12,7 +12,7 @@ void setup() {
   delay(5000);
 
   wifiHandler = new WifiHandler("SSID", "PW");
-  servidor = new Servidor();
+  servidor = new Servidor(WifiHandler->getMACAddress());
 }
 
 void loop() {

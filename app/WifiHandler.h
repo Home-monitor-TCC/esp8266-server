@@ -34,6 +34,10 @@ WifiHandler::WifiHandler(String ssid, String pw) {
   Serial.println(WiFi.localIP());
 }
 
+String WifiHandler::getMACAddress(){
+  return WiFi.macAddress();
+}
+
 void WifiHandler::setSsid(String ssid) {
   _ssid = ssid;
 }

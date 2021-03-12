@@ -1,9 +1,10 @@
 #include <ESP8266WebServer.h>
-#include<ArduinoJson.h>
+#include <ArduinoJson.h>
 #include <list>
 #include "Componente.h"
 #include "Led.h"
 #include "SensorTemperatura.h"
+#include "ESP8266HTTPClient.h"
 
 using std::list;
 ESP8266WebServer servidorEsp(80);
@@ -17,6 +18,7 @@ class Servidor {
     void handler();
 
   private:
+    String _macAddress;
     void handleRoot();
     void handleNotFound();
     void handleAdicionarComponente();
@@ -28,7 +30,8 @@ class Servidor {
     void handleBancoDeDados();
 };
 
-Servidor::Servidor(){
+Servidor::Servidor(String macAddress){
+  _macAddress = macAddress;
   servidorEsp.onNotFound(std::bind(&Servidor::handleNotFound, this));
   servidorEsp.on("/", HTTP_GET, std::bind(&Servidor::handleRoot, this));
   servidorEsp.on("/componentes/adicionar", HTTP_POST, std::bind(&Servidor::handleAdicionarComponente, this));
@@ -55,25 +58,11 @@ void Servidor::handleAdicionarComponente() {
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
   DynamicJsonDocument docRes(1024);
-  
+
   String nome = doc["nome"];
   String descricao = doc["descricao"];
   int tipo = doc["tipo"];
   int pino = doc["pino"];
-
-  if (tipo == 1) {
-    Led *comp = new Led(nome, descricao, pino, tipo);
-    componentes.push_back(*comp);
-  }
-
-  else if (tipo == 2) {
-    SensorTemperatura *comp = new SensorTemperatura(nome, descricao, pino, tipo);
-    componentes.push_back(*comp);
-  }
-
-  else {//Se o tipo do componente não existir
-    servidorEsp.send(400, "text/plain", "400: Bad Request");
-  }
 
   if (nome.length() > 64) { //Limite tamanho do nome
     servidorEsp.send(400, "text/plain", "400: Bad Request");
@@ -83,12 +72,39 @@ void Servidor::handleAdicionarComponente() {
   }
 
   for (auto x : componentes) {
-    if(pino == x.getPino()){ // Verifica se o pino já tá em uso.
+    if(pino == x.getPino()){ // Verifica se o pino já está em uso.
       servidorEsp.send(400, "text/plain", "400: Bad Request");
     }
   }
   for (int x: listaPinosValidos) {//Verifica a validade do pino escolhido
     if(pino == x){
+      if(tipo != 1 && tipo != 2){
+        servidorEsp.send(400, "text/plain", "400: Bad Request");
+      }
+
+      HTTPClient client;
+      String reqUrl = "num sei";
+      client.begin(reqUrl); //especifica o destino da request
+      client.addHeader("Content-Type","text/plain"); // especifica o tipo de conteudo do header
+
+      DynamicJsonDocument docResHttp(1024);
+      String msgHttp;
+
+      //(to-do)? adicionar conteudo em msgHttp
+      docResHttp["macAddress"] = _macAddress;
+      docResHttp["nome"] = nome;
+      docResHttp["descricao"] = descricao;
+      docResHttp["pino"] = pino;
+      docResHttp["tipo"] = tipo;
+
+      serializeJson(docResHttp, msgHttp); //serializa o conteudo de docResHttp em uma string
+
+      int httpCode = client.POST(msgHttp); //envia a request e recebe o codigo de resposta
+      String respostaHttp = client.getString(); //recebe a resposta ao request
+      // Serial.println(httpCode); //imprime o codigo de resposta
+      // Serial.println(respostaHttp); //imprime a resposta ao request
+
+      client.end(); //encerra conexão
 
       DynamicJsonDocument docRes(1024);
       String resposta = "";
@@ -97,9 +113,11 @@ void Servidor::handleAdicionarComponente() {
       docRes["descricao"] = descricao;
       docRes["pino"] = pino;
 
-      serializeJson(docRes, resposta);
+      serializeJson(docRes, resposta);  //serializa o conteudo de docRes  em uma string
 
-      servidorEsp.send(200, "text/plain", resposta);
+      //verificar o conteudo de httpCode para possivelmente enviar em vez de 200 abaixo
+      servidorEsp.send(200, "text/plain", resposta);  //envia mensagem de sucesso para o servidor
+
     }
   }
     servidorEsp.send(400, "text/plain", "400: Bad Request"); //Se nenhum pino tiver sido escolhido, informar erro
