@@ -1,16 +1,16 @@
 #include <ESP8266WebServer.h>
 #include <ArduinoJson.h>
-#include <list>
 #include "Componente.h"
 #include "Led.h"
 #include "SensorTemperatura.h"
 #include "ESP8266HTTPClient.h"
+#include <vector>
 
-using std::list;
+using std::vector;
 ESP8266WebServer servidorEsp(80);
-
-std::list<Componente> componentes = {}; //Cria a lista de componentes registrados
 int listaPinosValidos[] = {16, 5, 4, 0, 2, 14, 12, 13, 15, 3, 1}; //Lista de pinos válidos para uso
+vector<int> listaPinosSensor; // Lista de pinos dos sensores de temperatura
+vector<String> listaIdSensor; // Lista de ids dos sensores de temperatura
 
 class Servidor {
   public:
@@ -18,7 +18,11 @@ class Servidor {
     void handler();
 
   private:
-    String _macAddress;
+    unsigned long currentMillis;
+    unsigned long previousMillis = 0;
+    unsigned long interval = 60000;
+    String _reqUrl = ""; // URL do servidor Node
+    String _macAddress; //MACAddress da placa ESP8266
     void handleRoot();
     void handleNotFound();
     void handleAdicionarComponente();
@@ -39,7 +43,6 @@ Servidor::Servidor(String macAddress){
   servidorEsp.on("/componentes/editar", HTTP_POST, std::bind(&Servidor::handleEditarComponente, this));
   servidorEsp.on("/componentes/led/acender", HTTP_POST, std::bind(&Servidor::handleAcenderLed, this));
   servidorEsp.on("/componentes/led/apagar", HTTP_POST, std::bind(&Servidor::handleApagarLed, this));
-  servidorEsp.on("/componentes/sensores", HTTP_GET, std::bind(&Servidor::handleSensores, this));
   servidorEsp.on("/bd", HTTP_GET, std::bind(&Servidor::handleBancoDeDados, this));
   servidorEsp.begin();
 }
@@ -71,26 +74,21 @@ void Servidor::handleAdicionarComponente() {
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
 
-  for (auto x : componentes) {
-    if(pino == x.getPino()){ // Verifica se o pino já está em uso.
-      servidorEsp.send(400, "text/plain", "400: Bad Request");
-    }
-  }
   for (int x: listaPinosValidos) {//Verifica a validade do pino escolhido
     if(pino == x){
       if(tipo != 1 && tipo != 2){
         servidorEsp.send(400, "text/plain", "400: Bad Request");
       }
 
+      // inicio da comunicação com node
+
       HTTPClient client;
-      String reqUrl = "num sei";
-      client.begin(reqUrl); //especifica o destino da request
+      client.begin(_reqUrl+"/component/create"); //especifica o destino da request
       client.addHeader("Content-Type","text/plain"); // especifica o tipo de conteudo do header
 
       DynamicJsonDocument docResHttp(1024);
       String msgHttp;
 
-      //(to-do)? adicionar conteudo em msgHttp
       docResHttp["macAddress"] = _macAddress;
       docResHttp["nome"] = nome;
       docResHttp["descricao"] = descricao;
@@ -99,12 +97,14 @@ void Servidor::handleAdicionarComponente() {
 
       serializeJson(docResHttp, msgHttp); //serializa o conteudo de docResHttp em uma string
 
-      int httpCode = client.POST(msgHttp); //envia a request e recebe o codigo de resposta
+      int httpCode = client.POST(msgHttp); //envia a request de adição e recebe o codigo de resposta
       String respostaHttp = client.getString(); //recebe a resposta ao request
       // Serial.println(httpCode); //imprime o codigo de resposta
       // Serial.println(respostaHttp); //imprime a resposta ao request
 
       client.end(); //encerra conexão
+
+      // fim da comunicação com node
 
       DynamicJsonDocument docRes(1024);
       String resposta = "";
@@ -115,7 +115,6 @@ void Servidor::handleAdicionarComponente() {
 
       serializeJson(docRes, resposta);  //serializa o conteudo de docRes  em uma string
 
-      //verificar o conteudo de httpCode para possivelmente enviar em vez de 200 abaixo
       servidorEsp.send(200, "text/plain", resposta);  //envia mensagem de sucesso para o servidor
 
     }
@@ -124,31 +123,54 @@ void Servidor::handleAdicionarComponente() {
 }
 
 void Servidor::handleRemoverComponente() {
-  bool removido = false;
   String data = servidorEsp.arg("plain");
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
 
+  String id = doc["id"];
   String nome = doc["nome"];
   String descricao = doc["descricao"];
   int pino = doc["pino"];
 
-  std::list<Componente>::iterator it;
-  for (it = componentes.begin(); it != componentes.end(); it++) { //percorre a lista de componentes
-    if (it->getNome() == nome && it->getDescricao() == descricao && it->getPino() == pino) { //encontra o pino especificado
-      it = componentes.erase(it);
-      removido = true;
-    }
-  }
+  // inicio da comunicação com node
+
+  HTTPClient client;
+  client.begin(_reqUrl+"/component/remove"); //especifica o destino da request
+  client.addHeader("Content-Type","text/plain"); // especifica o tipo de conteudo do header
+
+  DynamicJsonDocument docResHttp(1024);
+  String msgHttp;
+
+  docResHttp["id"] = id;
+  docResHttp["macAddress"] = _macAddress;
+  docResHttp["nome"] = nome;
+  docResHttp["descricao"] = descricao;
+  docResHttp["pino"] = pino;
+  docResHttp["tipo"] = tipo;
+
+  serializeJson(docResHttp, msgHttp); //serializa o conteudo de docResHttp em uma string
+
+  int httpCode = client.DELETE(msgHttp); //envia a request de deleção e recebe o codigo de resposta
+  String respostaHttp = client.getString(); //recebe a resposta ao request
+  
+  //remover abaixo na entrega final - PODE ESTOURAR A RAM
+  Serial.println(httpCode); //imprime o codigo de resposta
+  Serial.println(respostaHttp); //imprime a resposta ao request
+  //remover até aqui
+
+  client.end(); //encerra conexão
+
+  // fim da comunicação com node
+  
   DynamicJsonDocument docRes(1024);
   String resposta = "";
 
-  if(removido){
+  if(httpCode>=200 && httpCode<=299){  //caso o codigo do node seja de sucesso, envia uma mensagem de resposta para o servidor
     docRes["nome"] = nome;
     docRes["descricao"] = descricao;
-    docRes["pino"] = pino;          //Monta o corpo do docRes caso a remoção tenha tido sucesso
+    docRes["pino"] = pino;
     serializeJson(docRes, resposta);
-    servidorEsp.send(200, "text/plain", resposta);
+    servidorEsp.send(200, "text/plain", resposta);  // envia o objeto deletado para o servidor em JSON
   }
   else {
     docRes["erro"] = "Componente não foi encontrado na tentativa de remover."; //Monta o docRes apenas com a mensagem de erro
@@ -171,39 +193,59 @@ void Servidor::handleEditarComponente() {
   String descricaoNovo = doc["descricaoNovo"];
   int pinoNovo = doc["pinoNovo"];
   bool validapino = false;
-  bool validaedit = false;
   if (nomeNovo.length() > 64) { //Limite tamanho do nome
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
   if (descricaoNovo.length() > 256) { //Limite tamanho da descricao
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
-  for (auto x : componentes) {
-    if(pinoNovo == x.getPino() && pinoNovo != pino){ // Verifica se o pino já tá em uso ou simplesmente sendo mantido
-      servidorEsp.send(400, "text/plain", "400: Bad Request");
-    }
-  }
   for (int x: listaPinosValidos) {//Verifica a validade do pino escolhido
     if(pinoNovo = x){
       validapino = true;
     }
   }
-  if(validapino){// Só adiciona o
-  for (auto i : componentes) {
-      if (i.getNome() == nome && i.getDescricao() == descricao && i.getPino() == pino) {
-        i.setNome(nomeNovo);
-        i.setDescricao(descricaoNovo);
-        i.setPino(pinoNovo);
-        validaedit = true;
-      }
-    }
-  }else{
+  if(validapino){
+    // inicio da comunicação com node
+
+    HTTPClient client;
+    client.begin(_reqUrl+"/component/edit"); //especifica o destino da request
+    client.addHeader("Content-Type","text/plain"); // especifica o tipo de conteudo do header
+
+    DynamicJsonDocument docResHttp(1024);
+    String msgHttp;
+
+    docResHttp["id"] = id;
+    docResHttp["macAddress"] = _macAddress;
+    docResHttp["nome"] = nome;
+    docResHttp["descricao"] = descricao;
+
+    serializeJson(docResHttp, msgHttp); //serializa o conteudo de docResHttp em uma string
+
+    int httpCode = client.PATCH(msgHttp); //envia a request de deleção e recebe o codigo de resposta
+    String respostaHttp = client.getString(); //recebe a resposta ao request
+    
+    //remover abaixo na entrega final - PODE ESTOURAR A RAM
+    Serial.println(httpCode); //imprime o codigo de resposta
+    Serial.println(respostaHttp); //imprime a resposta ao request
+    //remover até aqui
+
+    client.end(); //encerra conexão
+
+    // fim da comunicação com node
+  }
+  else{
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
 
-  if(validaedit){
+  if(httpCode>=200 && httpCode<=299){ //se o Node retornou sucesso, envia sucesso para o servidor
+    DynamicJsonDocument docRes(1024);
+    String resposta = "";
+    docRes["id"] = id;
+    docRes["nome"] = nome;
+    docRes["descricao"] = descricao;
     servidorEsp.send(200, "text/plain");
-  }else{
+  }
+  else{
     servidorEsp.send(400, "text/plain", "400: Bad Request");
   }
 }
@@ -302,44 +344,65 @@ void Servidor::handleApagarLed() {
   }
 }
 
-void Servidor::handleSensores() {
-  int aux = 0;
-  DynamicJsonDocument docRes(1024);
-  String resposta = "";
+void Servidor::handleBancoDeDados() {
 
-  for (auto i : componentes) {
-    if (i.getTipo() == 2) {
-      docRes[aux]["pino"] = i.getNome();
-     // docRes[aux]["dados"] = (SensorTemperatura)i.getTemperatura();
-      aux++;
+  // inicio da comunicação com node
+
+  HTTPClient client;
+  client.begin(_reqUrl+"/dbdump/read"); //especifica o destino da request
+  client.addHeader("Content-Type","text/plain"); // especifica o tipo de conteudo do header
+
+  DynamicJsonDocument docResHttp(1024);
+  String msgHttp;
+
+  docResHttp["macAddress"] = _macAddress;
+
+  serializeJson(docResHttp, msgHttp); //serializa o conteudo de docResHttp em uma string
+
+  int httpCode = client.GET(msgHttp); //envia a request e recebe o codigo de resposta
+  String respostaHttp = client.getString(); //recebe a resposta ao request
+  
+  //remover abaixo na entrega final - PODE ESTOURAR A RAM
+  Serial.println("Codigo http e payload do client.getString()");
+  Serial.println(httpCode); //imprime o codigo de resposta
+  Serial.println(respostaHttp); //imprime a resposta ao request
+  //remover até aqui
+
+  client.end(); //encerra conexão
+
+  // fim da comunicação com node
+
+  DynamicJsonDocument docRes(1024);
+
+  deserializeJson(docRes,respostaHttp);
+
+  for (auto i : docRes["leds"]) {
+    if(i["state"] == true) {
+      digitalWrite(i["pino"], HIGH);
+    }
+    else {
+      digitalWrite(i["pino"], LOW);
     }
   }
 
-  serializeJson(docRes, resposta);
-
-  servidorEsp.send(200, "text/plain", resposta);
-}
-
-void Servidor::handleBancoDeDados() {
-
-  DynamicJsonDocument docRes(1024);
-
-  int aux = 0;
-
-  for (auto i : componentes) {
-    docRes["data"][aux]["nome"] = i.getNome();
-    docRes["data"][aux]["descricao"] = i.getDescricao();
-    docRes["data"][aux]["pino"] = i.getPino();
-    docRes["data"][aux]["tipo"] = i.getTipo();
-    aux++;
+  for (auto j : docRes["temperatureSensors"]) {
+    listaPinosSensor.push_back(j["pino"]);
+    listaIdSensor.push_back(j["id"]);
   }
-  String resposta = "";
-  serializeJson(docRes, resposta);
-  Serial.print(resposta);
 
-  servidorEsp.send(200, "text/plain", resposta);
+  servidorEsp.send(200, "text/plain", respostaHttp);
 }
 
 void Servidor::handler(){
-    servidorEsp.handleClient();
+  servidorEsp.handleClient();
 }
+
+/*
+void Servidor::handleSensores(){
+  currentMillis = millis(); // armazena quanto tempo se passou desde que a placa iniciou
+  if(currentMillis - previousMillis >= interval){ //caso tenham-se passado (interval) segundos, executa novamente
+    previousMillis = currentMillis;
+
+  }
+}
+*/
