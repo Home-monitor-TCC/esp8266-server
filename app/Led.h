@@ -5,9 +5,10 @@
 #define Led_H
 
 class Led: public Componente {
-  public:   
-    Led(String nome, String descricao, int pino, int tipo):Componente(nome, descricao, pino, tipo){};
+  public:
 
+    Led(String nome, String descricao, int pino, int tipo);
+    
     void setEstado(bool estadoLED);
     bool getEstado();
 
@@ -15,10 +16,16 @@ class Led: public Componente {
     bool _estadoLED = false;
 };
 
-void Led::setEstado(bool estadoLED){
-  _estadoLED = estadoLED;
+Led::Led(String nome, String descricao, int pino, int tipo):Componente(nome, descricao, pino, tipo) {
+  pinMode(pino, OUTPUT);
 }
 
-bool Led::getEstado(){
+void Led::setEstado(bool estadoLED) {  
+  _estadoLED = estadoLED;
+  digitalWrite(_pino, _estadoLED);
+}
+
+bool Led::getEstado() {
+  _estadoLED = digitalRead(_pino);
   return _estadoLED;
 }

@@ -2,7 +2,7 @@
 
 #define Componente_H
 
-class Componente{
+class Componente {
   public:
     Componente(String nome, String descricao, int pino, int tipo);
 
@@ -11,12 +11,15 @@ class Componente{
 
     void setNome(String nome);
     String getNome();
-    
+
     void setDescricao(String descricao);
     String getDescricao();
 
     void setTipo(int tipo);
     int getTipo();
+
+    //1 - LED
+    //2 - SENSORES
 
   protected:
     int _pino;
@@ -25,41 +28,41 @@ class Componente{
     String _descricao;
 };
 
-Componente::Componente(String nome, String descricao, int pino, int tipo){
+Componente::Componente(String nome, String descricao, int pino, int tipo) {
   setNome(nome);
   setDescricao(descricao);
   setPino(pino);
   setTipo(tipo);
 }
 
-void Componente::setPino(int pino){
+void Componente::setPino(int pino) {
   _pino = pino;
 }
 
-int Componente::getPino(){
+int Componente::getPino() {
   return _pino;
 }
 
-void Componente::setNome(String nome){
+void Componente::setNome(String nome) {
   _nome = nome;
 }
 
-String Componente::getNome(){
+String Componente::getNome() {
   return _nome;
 }
 
-void Componente::setDescricao(String descricao){
+void Componente::setDescricao(String descricao) {
   _descricao = descricao;
 }
 
-String Componente::getDescricao(){
+String Componente::getDescricao() {
   return _descricao;
 }
 
-void Componente::setTipo(int tipo){
+void Componente::setTipo(int tipo) {
   _tipo = tipo;
 }
 
-int Componente::getTipo(){
+int Componente::getTipo() {
   return _tipo;
 }
