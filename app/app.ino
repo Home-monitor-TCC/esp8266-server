@@ -11,8 +11,8 @@ void setup() {
   Serial.begin(9600);
   delay(5000);
 
-  wifiHandler = new WifiHandler("SSID", "PW");
-  servidor = new Servidor(WifiHandler->getMACAddress());
+  wifiHandler = new WifiHandler("", "");
+  servidor = new Servidor(wifiHandler->getMACAddress());
 }
 
 void loop() {

@@ -13,7 +13,7 @@ class WifiHandler {
     String getSsid();
     void setPw(String pw);
     String getPw();
-
+    String getMACAddress();
   private:
     String _ssid = "";
     String _pw = "";
