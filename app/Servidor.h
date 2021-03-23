@@ -22,8 +22,9 @@ class Servidor {
     unsigned long currentMillis;
     unsigned long previousMillis = 0;
     unsigned long interval = 60000;
-    String _reqUrl = ""; // URL do servidor Node
+    String _reqUrl = "http://192.168.0.122:2233"; // URL do servidor Node
     String _macAddress; //MACAddress da placa ESP8266
+    boolean _setupProcess = true;
     void handleRoot();
     void handleNotFound();
     void handleAdicionarComponente();
@@ -33,6 +34,8 @@ class Servidor {
     void handleApagarLed();
     void handleSensores();
     void handleBancoDeDados();
+    void handlePinosLivres();
+    void setupHandler();
 };
 
 Servidor::Servidor(String macAddress) {
@@ -44,6 +47,7 @@ Servidor::Servidor(String macAddress) {
   servidorEsp.on("/componentes/editar", HTTP_POST, std::bind(&Servidor::handleEditarComponente, this));
   servidorEsp.on("/componentes/led/acender", HTTP_POST, std::bind(&Servidor::handleAcenderLed, this));
   servidorEsp.on("/componentes/led/apagar", HTTP_POST, std::bind(&Servidor::handleApagarLed, this));
+  servidorEsp.on("/componentes/pinos", HTTP_GET, std::bind(&Servidor::handlePinosLivres, this));
   servidorEsp.on("/db", HTTP_GET, std::bind(&Servidor::handleBancoDeDados, this));
   servidorEsp.begin();
 
@@ -67,7 +71,6 @@ void Servidor::handleAdicionarComponente() {
 
   String nome = doc["name"];
   String descricao = doc["description"];
-  String id = doc["id"];
   int tipo = doc["type"];
   int pino = doc["pin"];
 
@@ -86,7 +89,6 @@ void Servidor::handleAdicionarComponente() {
       DynamicJsonDocument docResHttp(1024);
       String msgHttp;
 
-      docResHttp["id"] = id;
       docResHttp["board_mac_address"] = _macAddress;
       docResHttp["name"] = nome;
       docResHttp["description"] = descricao;
@@ -99,7 +101,7 @@ void Servidor::handleAdicionarComponente() {
       String respostaHttp = client.getString(); //recebe a resposta ao request
 
       client.end(); //encerra conexão
-      
+
       if (httpCode >= 200 && httpCode <= 299) {
         listaPinosSensor.push_back(pino);
         servidorEsp.send(200, "text/plain", respostaHttp);  //envia mensagem de sucesso para o servidor
@@ -281,7 +283,6 @@ void Servidor::handleApagarLed() {
 }
 
 void Servidor::handleBancoDeDados() {
-
   // inicio da comunicação com node
 
   HTTPClient client;
@@ -315,20 +316,111 @@ void Servidor::handleBancoDeDados() {
     }
   }
 
-  for (int j = 0; j < docRes["temperatureSensor"].size(); j++) {
-    listaPinosSensor.push_back(docRes["temperatureSensor"][j]["pino"]);
+  for (int j = 0; j < docRes["temperatureSensors"].size(); j++) {
+    listaPinosSensor.push_back(docRes["temperatureSensors"][j]["pin"]);
   }
 
-  
-  if(httpCode == 200){
-    servidorEsp.send(200, "text/plain", respostaHttp);  
+
+  if (httpCode == 200) {
+    servidorEsp.send(200, "text/plain", respostaHttp);
   } else {
-    servidorEsp.send(400, "text/plain", respostaHttp);  
+    servidorEsp.send(400, "text/plain", respostaHttp);
   }
-  
+
+}
+
+void Servidor::handleSensores() {
+  currentMillis = millis();
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    if (listaPinosSensor.size() >= 1) {
+
+      int i = 0;
+      String msgHttp;
+
+      DynamicJsonDocument doc(1024);
+      HTTPClient client;
+      client.begin(_reqUrl + "/temperature/create"); //especifica o destino da request
+      client.addHeader("Content-Type", "application/json");
+
+      doc["mac_address"] = _macAddress;
+
+      for (i = 0; i < listaPinosSensor.size(); i++) {
+        SensorTemperatura *sensor = new SensorTemperatura("", "", listaPinosSensor[i], 2);
+        doc["temperatureDataArray"][i]["pin"] = listaPinosSensor[i];
+        doc["temperatureDataArray"][i]["temperature"] = sensor->getTemperatura();
+      }
+
+      serializeJson(doc, msgHttp);
+      client.sendRequest("POST", msgHttp);
+      client.end();
+    }
+  }
+}
+
+void Servidor::setupHandler() {
+  HTTPClient client;
+  client.begin(_reqUrl + "/db/read"); //especifica o destino da request
+  client.addHeader("Content-Type", "application/json");
+
+  DynamicJsonDocument docResHttp(1024);
+  String msgHttp;
+
+  docResHttp["mac_address"] = _macAddress;
+
+  serializeJson(docResHttp, msgHttp); //serializa o conteudo de docResHttp em uma string
+
+  int httpCode = client.sendRequest("GET", msgHttp); //envia a request e recebe o codigo de resposta
+  String respostaHttp = client.getString(); //recebe a resposta ao request
+
+  client.end(); //encerra conexão
+
+  // fim da comunicação com node
+
+  DynamicJsonDocument docRes(1024);
+
+  deserializeJson(docRes, respostaHttp);
+
+  for (int i = 0; i < docRes["leds"].size(); i++) {
+    if (docRes["leds"][i]["state"] == true) {
+      digitalWrite(i["pino"], HIGH);
+    }
+    else {
+      digitalWrite(i["pino"], LOW);
+    }
+  }
+
+  for (int j = 0; j < docRes["temperatureSensors"].size(); j++) {
+    listaPinosSensor.push_back(docRes["temperatureSensors"][j]["pin"]);
+  }
+  _setupProcess = false;
+}
+
+void Servidor::handlePinosLivres(){
+  HTTPClient client;
+  client.begin(_reqUrl + "/board/pins"); //especifica o destino da request
+  client.addHeader("Content-Type", "application/json");
+
+  DynamicJsonDocument doc(1024);
+  String msgHttp;
+
+  doc["mac_address"] = _macAddress;
+
+  serializeJson(doc, msgHttp); //serializa o conteudo de docResHttp em uma string
+
+  int httpCode = client.sendRequest("GET", msgHttp); //envia a request e recebe o codigo de resposta
+  String respostaHttp = client.getString(); //recebe a resposta ao request
+
+  client.end();
+
+  servidorEsp.send(200, "text/plain", respostaHttp);
 }
 
 void Servidor::handler() {
+  if (_setupProcess) {
+    setupHandler();
+  }
+  
   servidorEsp.handleClient();
-
+  handleSensores();
 }

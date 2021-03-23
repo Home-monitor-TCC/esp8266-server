@@ -32,7 +32,9 @@ SensorTemperatura::SensorTemperatura(String nome, String descricao, int pino, in
 };
 
 float SensorTemperatura::getTemperatura() {
-  _temperatura = sensor.getTempCByIndex(0);
+//  _temperatura = sensor.getTempCByIndex(0);
+
+  _temperatura = 27;
   
   return _temperatura;
 };
