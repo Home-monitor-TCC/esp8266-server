@@ -66,7 +66,7 @@ void Servidor::handleAdicionarComponente() {
   DynamicJsonDocument docRes(1024);
 
   String data = servidorEsp.arg("plain");
-
+ 
   deserializeJson(doc, data);
 
   String nome = doc["name"];
@@ -103,7 +103,12 @@ void Servidor::handleAdicionarComponente() {
       client.end(); //encerra conexão
 
       if (httpCode >= 200 && httpCode <= 299) {
-        listaPinosSensor.push_back(pino);
+        if(tipo == 1){
+          pinMode(pino, OUTPUT);
+        }
+        else if(tipo == 2){
+          listaPinosSensor.push_back(pino);  
+        }
         servidorEsp.send(200, "text/plain", respostaHttp);  //envia mensagem de sucesso para o servidor
       }
       else {
@@ -117,6 +122,7 @@ void Servidor::handleRemoverComponente() {
   DynamicJsonDocument doc(1024);
 
   String data = servidorEsp.arg("plain");
+  boolean flag = false;
 
   deserializeJson(doc, data);
 
@@ -157,9 +163,13 @@ void Servidor::handleRemoverComponente() {
     for (it = listaPinosSensor.begin(); it != listaPinosSensor.end(); it++) { //percorre a lista de componentes
       if (*it == pino) { //encontra o pino especificado
         it = listaPinosSensor.erase(it);
+        flag = true;
       }
     }
-
+    if(!flag){
+      digitalWrite(pino, LOW);
+    }
+    
     servidorEsp.send(200, "text/plain", respostaHttp);  // envia o objeto deletado para o servidor em JSON
   }
   else {
@@ -219,7 +229,7 @@ void Servidor::handleAcenderLed() {
 
   deserializeJson(doc, data);
 
-  int pino = doc["pin"];
+  int pin = doc["pin"];
 
   HTTPClient client;
   client.begin(_reqUrl + "/led/on"); //especifica o destino da request
@@ -230,7 +240,7 @@ void Servidor::handleAcenderLed() {
   String msgHttp;
 
   docResHttp["mac_address"] = _macAddress;
-  docResHttp["pin"] = pino;
+  docResHttp["pin"] = pin;
 
   serializeJson(docResHttp, msgHttp); //serializa o conteudo de docResHttp em uma string
 
@@ -241,6 +251,7 @@ void Servidor::handleAcenderLed() {
 
   if (httpCode >= 200 && httpCode <= 299) { //se o Node retornou sucesso, envia sucesso para o servidor
     servidorEsp.send(200, "text/plain", respostaHttp);
+    digitalWrite(pin, HIGH);
   } else {
     servidorEsp.send(400, "text/plain", respostaHttp);
   }
@@ -277,6 +288,7 @@ void Servidor::handleApagarLed() {
 
   if (httpCode >= 200 && httpCode <= 299) { //se o Node retornou sucesso, envia sucesso para o servidor
     servidorEsp.send(200, "text/plain", respostaHttp);
+    digitalWrite(pin.toInt(), LOW);
   } else {
     servidorEsp.send(400, "text/plain", respostaHttp);
   }
@@ -382,21 +394,26 @@ void Servidor::setupHandler() {
   deserializeJson(docRes, respostaHttp);
 
   for (int i = 0; i < docRes["leds"].size(); i++) {
+    int pinoTemp = docRes["leds"][i]["pin"];
     if (docRes["leds"][i]["state"] == true) {
-      digitalWrite(i["pino"], HIGH);
+      pinMode(pinoTemp, OUTPUT);
+      digitalWrite(pinoTemp, HIGH);
     }
     else {
-      digitalWrite(i["pino"], LOW);
+      pinMode(pinoTemp, OUTPUT);
+      digitalWrite(pinoTemp, LOW);
     }
   }
 
   for (int j = 0; j < docRes["temperatureSensors"].size(); j++) {
+    int pinoTemp = docRes["temperatureSensors"][j]["pin"];
+    pinMode(pinoTemp, INPUT);
     listaPinosSensor.push_back(docRes["temperatureSensors"][j]["pin"]);
   }
   _setupProcess = false;
 }
 
-void Servidor::handlePinosLivres(){
+void Servidor::handlePinosLivres(){ 
   HTTPClient client;
   client.begin(_reqUrl + "/board/pins"); //especifica o destino da request
   client.addHeader("Content-Type", "application/json");

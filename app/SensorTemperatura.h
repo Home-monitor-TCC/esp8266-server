@@ -16,25 +16,20 @@ class SensorTemperatura: public Componente {
 
   protected:
     float _temperatura;
-    OneWire pinoGPIO;
-    DallasTemperature sensor; 
 };
 
-SensorTemperatura::SensorTemperatura(String nome, String descricao, int pino, int tipo):Componente(nome, descricao, pino, tipo) {
-        OneWire owTemp(pino);
-        pinMode(pino, INPUT);
-        pinoGPIO = owTemp;
-        
-        DallasTemperature dtTemp(&pinoGPIO);
-        
-        sensor = dtTemp;
-        sensor.begin();
-};
+SensorTemperatura::SensorTemperatura(String nome, String descricao, int pino, int tipo):Componente(nome, descricao, pino, tipo) {};
 
 float SensorTemperatura::getTemperatura() {
-//  _temperatura = sensor.getTempCByIndex(0);
+  OneWire gpio(_pino);
+  DallasTemperature sensores(&gpio);
+  DeviceAddress sensor;
 
-  _temperatura = 27;
-  
+  sensores.begin();
+  sensores.getAddress(sensor, 0);
+
+  sensores.requestTemperatures();
+  _temperatura = sensores.getTempC(sensor);
+ 
   return _temperatura;
 };
